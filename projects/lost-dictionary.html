@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>失落的词典</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0a14;--pn:#1a1430;--ink:#f0e6cc;--ac:#e8a94a;--sub:#a79bc0;--ok:#3f9d6c;--bad:#c4503f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0a14}}
+:root[data-theme="dark"]{--bg:#0d0a14}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'VT323','PingFang SC','Microsoft YaHei',ui-monospace,monospace;font-size:21px;display:flex;justify-content:center}
+#app{width:100%;max-width:460px;background:var(--pn);padding-bottom:18px}
+#sc{position:relative}
+#c{width:100%;aspect-ratio:4/3;display:block}
+#sc::after{content:"";position:absolute;left:0;right:0;bottom:0;height:50%;background:linear-gradient(rgba(26,20,48,0),var(--pn) 90%);pointer-events:none}
+#box{position:relative;margin:-64px 14px 0;padding:24px 0 0;z-index:1}
+#nm{position:absolute;top:0;left:0;background:var(--ac);color:#140f1c;padding:5px 9px;font-family:'Press Start 2P',monospace;font-size:9px}
+.mu{position:absolute;top:-2px;right:0;background:none;border:0;font-size:20px;cursor:pointer}
+#tx{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-size:23px;line-height:1.3;min-height:150px;text-shadow:0 2px 0 #000}
+#tx p{margin:.5em 0 0}
+u{text-decoration:underline dotted var(--ac);text-underline-offset:4px;color:var(--ac);cursor:pointer}
+.q{color:var(--sub);font-style:italic}
+#tip{font-size:17px;color:var(--sub);min-height:24px;margin:6px 0 2px}
+.b{display:block;width:100%;margin-top:9px;padding:9px 12px;font:inherit;font-size:23px;color:var(--ink);background:rgba(255,255,255,.06);border:2px solid var(--sub);box-shadow:0 3px 0 #000;text-align:left;cursor:pointer;min-height:48px}
+.b:active{transform:translateY(3px);box-shadow:none}
+.b.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.b.no{background:var(--bad);border-color:var(--bad);color:#fff}
+.b small{float:right;font-size:17px}
+.ttl{font-family:'Press Start 2P',monospace;font-size:19px;line-height:1.7;color:var(--ac);margin:6px 0 10px}
+.big{font-size:48px;text-align:center;color:var(--ac)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="sc"><canvas id="c" width="640" height="480"></canvas></div>
+  <div id="box">
+    <span id="nm"></span><button class="mu" id="mu">🔊</button>
+    <div id="tx"></div>
+    <div id="tip"></div>
+    <div id="ch"></div>
+  </div>
+</div>
+<script>
+const $=s=>document.querySelector(s),IV=[0,1,2,4,8,16];
+let LV={};try{LV=JSON.parse(localStorage.getItem('ld')||'{}')}catch(e){}
+const save=()=>{try{localStorage.setItem('ld',JSON.stringify(LV))}catch(e){}};
+const V={consequence:["后果，结果","n."],alter:["改变，修改","v."],reluctant:["不情愿的","adj."],conceal:["隐藏，隐瞒","v."],ambiguous:["模棱两可的","adj."],credible:["可信的","adj."],justify:["为…辩护；证明合理","v."],undermine:["逐渐削弱，破坏","v."],deteriorate:["恶化，变质","v."],inevitable:["不可避免的","adj."],coerce:["胁迫，强迫","v."]};
+const CL={
+C1:["被改写的定义","In green ink, Hart defined 'derelict' as abandoned by its owner, without intention of return. A black-ink hand had [[alter|altered]] it to 'neglected by its owner'. A tiny edit, yet the [[consequence]] is vast: every boathouse in the bay could now be seized."],
+C2:["被撕掉的索引","The ledger's index was torn out, as if to [[conceal]] who approved each amendment. In the margin, a smudged pair of initials survived: R. V."],
+C3:["Hart 的日志","Hart's log for the night he vanished: 'Midnight. Finch's boat still at the jetty, unlit.'"],
+C4:["访客簿","'R. Vale, 10:40 p.m. to 11:40 p.m.' Signed and witnessed by the postmaster. Timed, independent and hard to dispute, the entry is [[credible]] evidence."],
+C5:["墨水与笔迹","A bottle of black household ink stands beside the accounts. The looped 'n' in Mrs. Wren's grocery lists matches the looped 'n' in 'neglected' on the altered proof."],
+C6:["潮汐表","Hart's tide table: the harbour was dry until dawn that night. No boat could put to sea. Finch's claim, 'out on the water all night', cannot be true."],
+C7:["灯塔楼梯上的托盘","On the lantern stair: a tray with two cups and fresh bread crusts, still faintly warm. Someone is carrying food up in secret."],
+C8:["Wren 的供述","Wren's hands shook. \"Vale said my son would lose his post at the harbour office. I was [[reluctant]], but he made it a choice between the book and my boy.\" She had been [[coerce|coerced]], not persuaded."],
+C9:["Finch 的证词","Finch swallowed. \"I lied. From the jetty I saw Vale's launch leave at midnight, a leather case at his feet. I was afraid, so my answer was deliberately [[ambiguous]].\""],
+C10:["Hart 还活着","Wren whispered: \"He asked me to tell no one. He is safe in the lantern room, hiding by his own choice. Please.\""]};
+const OPEN="Marrow Bay, 11:40 p.m. Dr. Hart, keeper of the only dictionary the harbour court trusts, has vanished. Someone has been rewriting words, and the court sits at dawn. You have one night.";
+const INTRO=["The keeper's study. Green ink, salt air, and a lamp still warm.","The archive. Sixty years of paper, and the smell of ink.","The shore. The tide is out, and the lighthouse keeps its own counsel."];
+const Q=[{q:"Who ordered the definition changed?",o:["Mrs. Wren","Finch","Councillor Vale"],a:2,v:['C2','C4','C9']},{q:"Who physically altered the proofs?",o:["Councillor Vale","Mrs. Wren","Dr. Hart himself"],a:1,v:['C5','C8','C1']},{q:"Where is Dr. Hart?",o:["Drowned in the bay","On Vale's launch","Hiding in the lantern room"],a:2,v:['C7','C10','C9']}];
+const END=[
+["Your accusations did not hold. Vale's lawyers dismissed the case, the altered definition became law, and the loss of the boathouses now seemed [[inevitable]]. Read again, and look harder."],
+["The court found your evidence [[ambiguous]] and postponed its ruling. Hart was found, but without full proof of Wren's coercion, Vale kept his seat. Paper left in salt air will [[deteriorate]], and so will a fragile case."],
+["You laid the proofs before the harbour court: the altered ink, the initials, the witnesses who dared to speak. Hart stepped out of the lantern room to confirm every word. \"No excuse can [[justify]] editing a promise,\" he said. Vale was removed. Wren was spared, because you proved she was [[coerce|coerced]].","\"A definition that bends to power will [[undermine]] every judgment built on it,\" said Hart. \"The ruin was [[inevitable]] only until someone read carefully.\" By the end of the week, 'derelict' meant what it always had."]];
+/* ---- audio ---- */
+let ac,mute=false;
+function tn(f,d,dl=0,ty='square'){if(mute)return;try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),v=ac.createGain(),t=ac.currentTime+dl;o.type=ty;o.frequency.value=f;o.connect(v);v.connect(ac.destination);v.gain.setValueAtTime(.05,t);v.gain.exponentialRampToValueAtTime(.001,t+d);o.start(t);o.stop(t+d)}catch(e){}}
+const sfx={click:()=>tn(520,.06),ok:()=>{tn(660,.1);tn(880,.16,.09)},bad:()=>tn(160,.25,0,'sawtooth')};
+let VO=null;function pickV(){const v=speechSynthesis.getVoices().filter(x=>/^en/i.test(x.lang));for(const p of [/Neural|Natural|Online/i,/Premium|Enhanced/i,/Google UK English Female/i,/Ava|Samantha|Serena|Allison|Moira|Karen/i,/Google US English/i]){const f=v.find(x=>p.test(x.name));if(f){VO=f;return}}VO=v[0]||null}
+try{pickV();speechSynthesis.onvoiceschanged=pickV}catch(e){}
+function speak(t){if(mute)return;try{const u=new SpeechSynthesisUtterance(t);if(VO){u.voice=VO;u.lang=VO.lang}else u.lang='en-GB';u.rate=.9;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+$('#mu').onclick=()=>{mute=!mute;$('#mu').textContent=mute?'🔇':'🔊'};
+/* ---- pixel art ---- */
+const g=$('#c').getContext('2d');
+const R=(x,y,w,h,f)=>{g.fillStyle=f;g.fillRect(x|0,y|0,w|0,h|0)};
+const D=(cx,cy,r,f)=>{g.fillStyle=f;for(let y=-r;y<=r;y++){const w=Math.sqrt(r*r-y*y)|0;g.fillRect(cx-w,cy+y,2*w+1,1)}};
+const rnd=s=>()=>(s=s*16807%2147483647)/2147483647;
+const LG=(y0,y1,st)=>{const q=g.createLinearGradient(0,y0,0,y1);st.forEach(a=>q.addColorStop(a[0],a[1]));return q};
+const RG=(x,y,r,c,a)=>{const q=g.createRadialGradient(x,y,0,x,y,r);q.addColorStop(0,`rgba(${c},1)`);q.addColorStop(1,`rgba(${c},0)`);g.globalAlpha=a;g.fillStyle=q;g.fillRect(x-r,y-r,2*r,2*r);g.globalAlpha=1};
+const BK=['#7a2a2e','#25506e','#b8892f','#3f7a5c','#5d4488','#8a5a34'];
+function night(t,hz,mx,my){g.fillStyle=LG(0,hz,[[0,'#060a1c'],[.6,'#17284d'],[1,'#3b5a82']]);g.fillRect(0,0,160,hz);
+ const r=rnd(7);for(let i=0;i<50;i++){g.fillStyle=`rgba(230,238,255,${.25+.5*Math.abs(Math.sin(t/700+i))})`;g.fillRect(r()*160,r()*hz*.8,.6,.6)}
+ RG(mx,my,26,'190,210,255',.35);g.fillStyle='#f6f0d6';g.beginPath();g.arc(mx,my,5,0,7);g.fill();g.fillStyle='rgba(120,130,160,.25)';g.beginPath();g.arc(mx-1.5,my-1,1.3,0,7);g.arc(mx+1.5,my+1.5,.9,0,7);g.fill();
+ g.fillStyle=LG(hz,120,[[0,'#1f3a5c'],[1,'#07101f']]);g.fillRect(0,hz,160,120-hz);
+ for(let y=hz+2;y<120;y+=2.4){const k=(y-hz)/(120-hz);g.strokeStyle=`rgba(150,185,230,${.05+.07*(1-k)})`;g.lineWidth=.4+k*.5;g.beginPath();for(let x=0;x<=160;x+=4)g.lineTo(x,y+Math.sin(x/9+t/600+y)*.6*(1+k));g.stroke()}
+ g.fillStyle='rgba(246,240,214,.25)';for(let y=hz+2;y<118;y+=2.2){const w=6*(1-(y-hz)/120)+Math.sin(t/300+y)*1.5;g.fillRect(mx-w/2,y,w,.7)}}
+function books(x0,y0,w,rows,seed){const r=rnd(seed);g.fillStyle='#2b1a10';g.fillRect(x0,y0,w,rows*16+2);for(let k=0;k<rows;k++){const by=y0+15+k*16;let x=x0+1.5;while(x<x0+w-2){const bw=1.6+r()*2.4,bh=8+r()*5;g.fillStyle=BK[r()*6|0];g.fillRect(x,by-bh,bw,bh);g.fillStyle='rgba(255,255,255,.14)';g.fillRect(x,by-bh,.5,bh);g.fillStyle='rgba(0,0,0,.25)';g.fillRect(x+bw-.5,by-bh,.5,bh);g.fillStyle='rgba(240,210,120,.5)';g.fillRect(x+.4,by-bh+2,bw-.8,.5);x+=bw+.15}g.fillStyle='#4b2f1b';g.fillRect(x0,by,w,1.6)}}
+function dust(t,n,x0,w){for(let i=0;i<n;i++){g.fillStyle=`rgba(255,235,190,${.15+.25*Math.abs(Math.sin(t/500+i))})`;g.fillRect(x0+(i*37+t/70)%w,(i*23+Math.sin(t/900+i)*5+t/110)%110,.7,.7)}}
+function s0(t){g.fillStyle=LG(0,120,[[0,'#2b2040'],[1,'#120c1e']]);g.fillRect(0,0,160,120);
+ const wn=()=>{g.beginPath();g.moveTo(52,58);g.lineTo(52,28);g.quadraticCurveTo(52,10,80,10);g.quadraticCurveTo(108,10,108,28);g.lineTo(108,58)};
+ g.save();wn();g.clip();night(t,44,92,26);g.restore();g.strokeStyle='#0a0710';g.lineWidth=2.4;wn();g.closePath();g.moveTo(80,10);g.lineTo(80,58);g.moveTo(52,34);g.lineTo(108,34);g.stroke();
+ g.fillStyle='#5e1f2f';g.fillRect(42,8,12,58);g.fillRect(106,8,12,58);g.fillStyle='rgba(0,0,0,.3)';for(let x=44;x<54;x+=3){g.fillRect(x,8,.8,58);g.fillRect(x+64,8,.8,58)}
+ g.fillStyle=LG(92,120,[[0,'#3b2416'],[1,'#180d08']]);g.fillRect(0,92,160,28);g.fillStyle='rgba(0,0,0,.35)';for(let x=0;x<160;x+=18)g.fillRect(x,92,.6,28);
+ books(4,8,36,5,3);
+ g.fillStyle=LG(84,92,[[0,'#7a4a2a'],[1,'#4a2a16']]);g.fillRect(44,84,94,7);g.fillStyle='#3a2214';g.fillRect(50,91,5,22);g.fillRect(128,91,5,22);
+ g.save();g.translate(70,82);g.rotate(-.06);g.fillStyle='#f1e7c8';g.fillRect(-12,-6,24,8);g.fillStyle='#3a7a4a';g.fillRect(-10,-4,13,.6);g.fillStyle='#222';g.fillRect(-10,-2,10,.6);g.fillRect(-10,-.5,14,.6);g.restore();
+ g.fillStyle='#1c1424';g.fillRect(98,80,8,4);g.fillRect(101,68,2,12);g.fillStyle='#2d6b4a';g.beginPath();g.ellipse(102,68,9,5,0,Math.PI,0);g.fill();
+ RG(102,72,48,'255,190,100',.3+.05*Math.sin(t/110));g.fillStyle=LG(72,92,[[0,'rgba(255,200,120,.22)'],[1,'rgba(255,200,120,0)']]);g.beginPath();g.moveTo(96,72);g.lineTo(108,72);g.lineTo(128,92);g.lineTo(80,92);g.fill();dust(t,14,60,70)}
+function s1(t){g.fillStyle=LG(0,120,[[0,'#1a1428'],[1,'#0d0916']]);g.fillRect(0,0,160,120);
+ books(0,4,52,6,11);books(108,4,52,6,12);books(54,4,52,6,13);g.fillStyle='rgba(6,4,14,.45)';g.fillRect(54,4,52,98);
+ g.fillStyle=LG(0,100,[[0,'rgba(255,200,120,.26)'],[1,'rgba(255,200,120,0)']]);g.beginPath();g.moveTo(68,0);g.lineTo(92,0);g.lineTo(126,100);g.lineTo(34,100);g.fill();
+ g.fillStyle=LG(102,120,[[0,'#2a1a10'],[1,'#0e0806']]);g.fillRect(0,102,160,18);
+ g.fillStyle='#222';g.fillRect(79.5,0,1,10);g.fillStyle='#d9a441';g.fillRect(77,10,6,5);RG(80,13,26,'255,200,120',.4+.05*Math.sin(t/150));dust(t,22,0,160)}
+function s2(t){night(t,64,30,20);
+ g.fillStyle='#0b1428';g.beginPath();g.moveTo(0,64);g.quadraticCurveTo(30,52,60,62);g.quadraticCurveTo(90,56,110,63);g.lineTo(160,64);g.lineTo(160,68);g.lineTo(0,68);g.fill();
+ g.fillStyle=LG(94,120,[[0,'#4a4438'],[1,'#1c1a1c']]);g.beginPath();g.moveTo(0,98);g.quadraticCurveTo(80,92,160,100);g.lineTo(160,120);g.lineTo(0,120);g.fill();
+ g.fillStyle='#d9d0c0';g.beginPath();g.moveTo(121,101);g.lineTo(124,30);g.lineTo(132,30);g.lineTo(135,101);g.fill();
+ g.fillStyle='#a3352f';for(let y=38;y<98;y+=16){g.beginPath();g.moveTo(123.6,y);g.lineTo(132.4,y);g.lineTo(133.2,y+7);g.lineTo(122.8,y+7);g.fill()}
+ g.fillStyle='rgba(0,0,30,.28)';g.beginPath();g.moveTo(129,30);g.lineTo(132,30);g.lineTo(135,101);g.lineTo(129,101);g.fill();
+ g.fillStyle='#22202c';g.fillRect(123,24,10,6);g.beginPath();g.moveTo(123,17);g.lineTo(128,11);g.lineTo(133,17);g.fill();g.fillStyle='#ffe19a';g.fillRect(125,17,6,7);
+ g.fillStyle='#3a2416';g.beginPath();g.moveTo(125,101);g.lineTo(125,91);g.quadraticCurveTo(128,86,131,91);g.lineTo(131,101);g.fill();
+ RG(128,20,40,'255,225,150',.3);g.save();g.translate(128,21);g.rotate(Math.PI+Math.sin(t/1400)*.45);g.fillStyle='rgba(255,225,150,.11)';g.beginPath();g.lineTo(0,0);g.lineTo(100,-9);g.lineTo(100,9);g.fill();g.restore();
+ g.fillStyle='#231610';g.beginPath();g.moveTo(24,88);g.lineTo(66,88);g.quadraticCurveTo(56,100,36,100);g.quadraticCurveTo(28,96,24,88);g.fill();g.fillRect(44,68,1,20);g.fillStyle='#cfc6b0';g.beginPath();g.moveTo(46,70);g.lineTo(58,86);g.lineTo(46,86);g.fill();RG(62,84,12,'255,190,100',.5);
+ g.fillStyle='rgba(160,180,210,.07)';g.beginPath();g.ellipse((t/120)%220-30,86,50,7,0,0,7);g.fill();g.fillStyle='#0a0810';g.beginPath();g.ellipse(10,119,22,7,0,0,7);g.ellipse(152,118,20,6,0,0,7);g.fill()}
+function post(){const q=g.createRadialGradient(80,58,34,80,60,105);q.addColorStop(0,'rgba(0,0,0,0)');q.addColorStop(1,'rgba(3,2,10,.62)');g.fillStyle=q;g.fillRect(0,0,160,120);for(let i=0;i<50;i++){g.fillStyle=`rgba(255,255,255,${Math.random()*.07})`;g.fillRect(Math.random()*160,Math.random()*120,.5,.5)}}
+let bg=0,last=0;const SC=[s0,s1,s2];
+(function loop(t){if(t-last>50){last=t;g.setTransform(4,0,0,4,0,0);SC[bg](t);extras(t);post()}requestAnimationFrame(loop)})(0);
+const T=["...hhhhhh...","..hhhhhhhh..",".hhhhhhhhhh.",".hhsssssshh.",".hssesssesh.",".hssssssssh.","..sssmmsss..","...ssssss...","..cccccccc..",".ccccwwcccc.",".cccwwwwccc.",".cccccccccc.",".cccccccccc.",".cccccccccc."];
+const PL={N:{h:'#5a3a22',s:'#f0c9a0',c:'#2f7f86',w:'#efe4c4'},R:{h:'#b8b8c0',s:'#f0c9a0',c:'#7a3d6b',w:'#efe4c4'},F:{h:'#22262e',s:'#d9a97f',c:'#d9a441',w:'#4a4a52'}};
+let cur=null;const portrait=k=>{cur=k};
+function drawChar(t){if(!cur||cur==='N')return;const P=Object.assign({e:'#111',m:'#a33'},PL[cur]),S=5,x0=cur==='R'?16:84,y0=28+Math.sin(t/500)*1.2;
+ g.globalAlpha=.4;R(x0-2,y0+70,64,4,'#000');g.globalAlpha=1;
+ T.forEach((r,y)=>[...r].forEach((ch,x)=>{if(ch!=='.'){g.fillStyle=P[ch];g.fillRect((x0+x*S)|0,(y0+y*S)|0,S,S)}}))}
+/* ---- game ---- */
+const btn=(t,f)=>{const b=document.createElement('button');b.className='b';b.innerHTML=t;b.onclick=f;return b};
+const fmt=t=>t.replace(/\[\[(\w+)(?:\|(\w+))?\]\]/g,(m,a,b)=>`<u data-w="${a}">${b||a}</u>`);
+let miss={},loc=0,found=[],mode='';
+const LN=['书房','档案库','海岸'],NPC={1:['R',8],2:['F',60]};
+const HS=[[{x:56,y:70,w:32,h:16,c:'C1'},{x:6,y:8,w:34,h:44,c:'C2'},{x:52,y:14,w:56,h:44,c:'C3'}],[{x:54,y:70,w:30,h:18,c:'C4'},{x:86,y:68,w:14,h:20,c:'C5'}],[{x:24,y:66,w:36,h:34,c:'C6'},{x:118,y:76,w:18,h:26,c:'C7'}]];
+function npc(k,x0,t){const P=PL[k],b=Math.sin(t/500)*.8;g.save();g.translate(x0+30,0);
+ g.globalAlpha=.4;g.fillStyle='#000';g.beginPath();g.ellipse(0,101,22,3,0,0,7);g.fill();g.globalAlpha=1;
+ g.fillStyle=P.c;g.beginPath();g.moveTo(-17,101);g.quadraticCurveTo(-16,62+b,-9,56+b);g.lineTo(9,56+b);g.quadraticCurveTo(16,62+b,17,101);g.fill();
+ const q=g.createLinearGradient(-17,0,17,0);q.addColorStop(0,'rgba(255,200,120,.28)');q.addColorStop(.5,'rgba(0,0,0,0)');q.addColorStop(1,'rgba(0,0,20,.5)');g.fillStyle=q;g.fillRect(-17,54,34,48);
+ g.fillStyle=P.w;g.beginPath();g.moveTo(-4,56+b);g.lineTo(4,56+b);g.lineTo(0,66+b);g.fill();
+ g.fillStyle=P.s;g.fillRect(-2.5,50+b,5,7);g.beginPath();g.ellipse(0,44+b,7.5,9,0,0,7);g.fill();
+ g.fillStyle=P.h;if(k==='R'){g.beginPath();g.arc(0,33+b,4,0,7);g.fill()}g.beginPath();g.ellipse(0,40+b,8.2,7,0,Math.PI,0);g.fill();
+ if(k==='F'){g.fillStyle='#22262e';g.fillRect(-9,36+b,18,2.5)}
+ g.fillStyle='#1a1420';g.fillRect(-3.4,44+b,1,1.2);g.fillRect(2.4,44+b,1,1.2);g.fillStyle='rgba(160,60,60,.7)';g.fillRect(-1.5,48+b,3,.6);g.restore()}
+function extras(t){if(mode!=='x')return;
+ if(loc==1){g.fillStyle=LG(84,92,[[0,'#7a4a2a'],[1,'#4a2a16']]);g.fillRect(48,86,68,7);g.fillStyle='#f1e7c8';g.beginPath();g.moveTo(54,86);g.lineTo(69,83);g.lineTo(84,86);g.lineTo(69,88);g.fill();g.fillStyle='rgba(60,50,40,.5)';g.fillRect(58,85,9,.4);g.fillRect(71,85,9,.4);g.fillStyle='rgba(180,220,255,.5)';g.fillRect(89,77,7,10);g.fillStyle='#0a0710';g.fillRect(89,81,7,6);g.fillStyle='rgba(255,255,255,.6)';g.fillRect(90,78,1,8)}
+ const n=NPC[loc];if(n)npc(n[0],n[1],t);
+ HS[loc].forEach(h=>{if(!found.includes(h.c)){const x=h.x+h.w/2,y=h.y+h.h/2,a=.5+.5*Math.sin(t/350);RG(x,y,7,'255,235,170',.3+.4*a);g.fillStyle='#fff6d0';g.fillRect(x-.7,y-.7,1.4,1.4)}})}
+const tx=$('#tx');let SM=null,lp=null;if(window.claude&&claude.use)claude.use('sample').then(x=>{SM=x}).catch(()=>{});
+const ob=new MutationObserver(()=>{ob.disconnect();const w=document.createTreeWalker(tx,NodeFilter.SHOW_TEXT),ns=[];while(w.nextNode())ns.push(w.currentNode);ns.forEach(n=>{if(!/[A-Za-z]{2}/.test(n.data))return;const f=document.createDocumentFragment();n.data.split(/([A-Za-z][A-Za-z'-]*)/).forEach(p=>{if(/^[A-Za-z]/.test(p)){const e=document.createElement('span');e.className='w';e.textContent=p;f.append(e)}else f.append(p)});n.replaceWith(f)});ob.observe(tx,{childList:true,subtree:true})});ob.observe(tx,{childList:true,subtree:true});
+tx.addEventListener('pointerdown',e=>{const w=e.target.closest('.w');if(!w)return;clearTimeout(lp);lp=setTimeout(()=>look(w),420)});
+['pointerup','pointerleave','pointercancel'].forEach(k=>tx.addEventListener(k,()=>clearTimeout(lp)));tx.addEventListener('contextmenu',e=>e.preventDefault());
+async function look(el){tx._n=1;setTimeout(()=>tx._n=0,700);const w=el.textContent.replace(/'s$/,'').toLowerCase(),bs=Object.keys(V).find(k=>w.startsWith(k.slice(0,-1))),tip=$('#tip'),loc0=bs?`${w}  ${V[bs][1]}  ${V[bs][0]}`:w+'  此设备暂不支持查询';
+ speak(w);if(bs)miss[bs]=1;el.style.background='rgba(232,169,74,.35)';setTimeout(()=>el.style.background='',900);
+ if(!SM){tip.textContent=loc0;return}tip.textContent=w+'  …';
+ try{const r=await SM(`Give a concise Chinese gloss for the English word "${w}" as used in this passage: ${tx.textContent.slice(0,400)}\nReply only in this format: 词性 中文释义（最多12字）`,{modelTier:'quick'});tip.textContent=w+'  '+r.text.trim()}catch(e){tip.textContent=bs?loc0:w+'  暂时无法查询'}}
+$('#c').addEventListener('click',e=>{if(mode!=='x')return;const r=e.target.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*160,y=(e.clientY-r.top)/r.height*120,n=NPC[loc];
+ if(n&&x>=n[1]&&x<n[1]+60&&y>28&&y<98)return talk(n[0]);
+ const h=HS[loc].find(h=>x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h);if(h)read(h.c)});
+$('#tx').onclick=e=>{if(tx._n){tx._n=0;return}const u=e.target.closest&&e.target.closest('[data-w]'),w=u&&u.dataset.w;if(w&&V[w]){$('#tip').textContent=`${w}  ${V[w][1]}  ${V[w][0]}`;miss[w]=1;speak(w);sfx.click()}};
+function read(c){if(!found.includes(c)){found.push(c);sfx.ok()}else sfx.click();$('#nm').textContent=CL[c][0];$('#tx').innerHTML=fmt(CL[c][1]);$('#tip').textContent='已记入线索本';bar()}
+const cb=(t,f)=>{const b=btn(t,f);b.style.textAlign='center';return b};
+function bar(){const c=$('#ch');c.innerHTML='';const a=document.createElement('div'),d=document.createElement('div');a.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:8px';d.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px';
+ LN.forEach((n,k)=>{const b=cb(n,()=>{sfx.click();go(k)});if(k===loc)b.classList.add('ok');a.append(b)});
+ d.append(cb(`线索本 ${found.length}/10`,notebook),cb('推理',()=>found.length<6?$('#tip').textContent='线索还不够，至少要 6 条才能推理。':deduce()));c.append(a,d)}
+function go(k){loc=k;bg=k;mode='x';$('#nm').textContent=LN[k];$('#tx').innerHTML=INTRO[k];$('#tip').textContent='点击闪烁处调查'+(NPC[k]?'，点人物交谈':'');bar()}
+function notebook(){mode='n';$('#nm').textContent='线索本';$('#tx').innerHTML='<p class="q">点击线索重读。</p>';$('#tip').textContent='';const c=$('#ch');c.innerHTML='';found.forEach(k=>c.append(btn(CL[k][0],()=>{$('#tx').innerHTML=fmt(CL[k][1])})));c.append(cb('返回 ◀',()=>go(loc)))}
+function say(t){$('#tx').innerHTML=t;$('#tip').textContent=''}
+function talk(k){mode='t';$('#nm').textContent=k==='R'?'Mrs. Wren':'Finch';say('<p class="q">出示线索，或直接发问。</p>');const c=$('#ch');c.innerHTML='';
+ c.append(btn('问：Hart 去了哪里？',()=>say(k==='R'?'"I told the constable everything I know."':'"Ask the tide. It never lies."')));
+ found.forEach(x=>c.append(btn('出示：'+CL[x][0],()=>present(k,x))));c.append(cb('结束谈话 ◀',()=>go(loc)))}
+function present(k,x){const n=({R:{C5:'C8',C7:'C10'},F:{C6:'C9'}})[k][x];if(!n)return say(k==='R'?'"I do not see what that has to do with me."':'"Leave it alone. Please."');if(!found.includes(n)){found.push(n);sfx.ok()}$('#tx').innerHTML=fmt(CL[n][1]);$('#tip').textContent='已记入线索本'}
+function deduce(){let qi=0,sc=0;mode='d';bg=0;$('#nm').textContent='推理板';
+ (function ask(){const q=Q[qi];let a=null,ev=[];$('#tx').innerHTML=`<p class="q">推理 ${qi+1}/3</p>${q.q}`;$('#tip').textContent='选 1 个结论，再选 2 条证据。';const c=$('#ch');c.innerHTML='';const ob=[],eb=[];
+  q.o.forEach((o,n)=>{const b=btn(o);b.onclick=()=>{a=n;ob.forEach(x=>x.classList.remove('ok'));b.classList.add('ok')};ob.push(b);c.append(b)});
+  c.append(Object.assign(document.createElement('p'),{className:'q',textContent:'证据：'}));
+  found.forEach(k=>{const b=btn(CL[k][0]);b.onclick=()=>{if(ev.includes(k)){ev=ev.filter(x=>x!==k);b.classList.remove('ok')}else if(ev.length<2){ev.push(k);b.classList.add('ok')}};c.append(b)});
+  c.append(cb('提交 ▶',()=>{if(a===null||ev.length<2)return $('#tip').textContent='需要 1 个结论和 2 条证据。';
+   const right=a===q.a,good=ev.filter(e=>q.v.includes(e)).length===2;if(right&&good){sc++;sfx.ok()}else sfx.bad();
+   $('#tip').textContent=right&&good?'成立。':right?'结论没错，但证据撑不住。':'结论不对。';c.innerHTML='';c.append(cb(qi<2?'下一个 ▶':'宣读结论 ▶',()=>{qi++;qi<3?ask():ending(sc)}))}))})()}
+function ending(sc){const E=END[sc>=3?2:sc===2?1:0];let ip=0;mode='e';bg=0;$('#nm').textContent='Dawn';
+ (function pg(){$('#tx').innerHTML=fmt(E[ip]);$('#tip').textContent='';$('#ch').innerHTML='';$('#ch').append(cb(ip<E.length-1?'继续 ▶':'整理索引卡 ▶',()=>{sfx.click();ip<E.length-1?(ip++,pg()):finish()}))})()}
+function title(){mode='';bg=0;$('#nm').textContent='';const due=Object.keys(LV).filter(w=>V[w]&&LV[w].d<=Date.now());
+ $('#tx').innerHTML='<div class="ttl">THE LOST<br>DICTIONARY</div><p>失落的词典 · 第一章</p><p class="q">灯塔管理员失踪了。没人会告诉你答案，你得自己找。</p>';$('#tip').textContent='';$('#ch').innerHTML='';
+ $('#ch').append(cb('开始 ▶',()=>{sfx.click();restart()}));if(due.length)$('#ch').append(cb(`复习到期的词 (${due.length})`,()=>{sfx.click();review(due.slice(0,8),false)}))}
+function restart(){found=[];miss={};go(0);$('#tx').innerHTML=fmt(OPEN);$('#tip').textContent='点击闪烁处调查；长按任意英文单词查看释义。'}
+function finish(){const now=Date.now();Object.keys(V).forEach(w=>{if(miss[w])LV[w]={l:0,d:now};else if(!LV[w])LV[w]={l:1,d:now+864e5}});save();
+ review(Object.keys(V).sort((a,b)=>(miss[b]?1:0)-(miss[a]?1:0)).slice(0,5),true)}
+function review(list,after){let k=0,ok=0;bg=1;portrait('N');$('#nm').textContent='索引卡';
+ const res=()=>{$('#tx').innerHTML=`<div class="big">${ok}/${list.length}</div><p>答错的词会更早回来。明天再来，看看它们还记不记得你。</p>`;$('#tip').textContent='';$('#ch').innerHTML='';$('#ch').append(btn(after?'再读一遍':'回到标题',()=>{sfx.click();after?restart():title()}))};
+ (function q(){if(k>=list.length)return res();
+  const w=list[k],ot=Object.keys(V).filter(x=>x!==w).sort(()=>Math.random()-.5).slice(0,2),os=[w,...ot].sort(()=>Math.random()-.5);
+  $('#tx').innerHTML=`<div class="big">${w}</div><p style="text-align:center" class="q">${V[w][1]}　${k+1}/${list.length}</p>`;$('#tip').textContent='选出正确的中文释义';$('#ch').innerHTML='';speak(w);let lock=0;
+  os.forEach(o=>{const b=btn(V[o][0]);b.onclick=()=>{if(lock)return;lock=1;const r=o===w;b.classList.add(r?'ok':'no');
+   const e=LV[w]||{l:0};if(r){ok++;e.l=Math.min(5,e.l+1);sfx.ok()}else{e.l=0;sfx.bad()}e.d=Date.now()+IV[e.l]*864e5;LV[w]=e;save();
+   $('#ch').querySelectorAll('.b').forEach(x=>{if(x.textContent===V[w][0])x.classList.add('ok')});k++;setTimeout(q,1100)};$('#ch').append(b)})})()}
+title();
+</script>
+</body>
+</html>
